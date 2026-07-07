@@ -1,0 +1,1198 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//Configuracões da empresa
+model Empresa {
+  id                        Int          @id @default(autoincrement())
+  nome                      String
+  cnpj                      String       @unique
+  endereco                  Endereco     @relation(fields: [enderecoId], references: [id])
+  enderecoId                Int
+  telefone                  String?
+  email                     String?
+  status                    PessoaStatus @default(ATIVA)
+  avisosReajusteLocacao     Int          @default(30) //Número de dias para avisos de reajustes de locação
+  avisosRenovacaoContrato   Int          @default(30) //Número de dias para avisos de renovação de contratos
+  avisosSeguroFianca        Int          @default(30) //Número de dias para avisos de seguro fiança
+  avisosSeguroIncendio      Int          @default(30) //Número de dias para avisos de seguro incêndio
+  avisosTituloCapitalizacao Int          @default(30) //Número de dias para avisos de título de capitalização
+  avisosDepositoCalcao      Int          @default(30) //Número de dias para avisos de depósito caução
+  avisosVencBoleto          Int          @default(5) //Número de dias para avisos de vencimento de boleto
+  porcentagemComissao       Float        @default(8) //Porcentagem de comissão da imobiliária
+  emiteBoleto               String       @default("N") //Emite boleto S/N
+  valorTaxaBoleto           Float        @default(5) //Valor da taxa de boleto
+  tipoLancamento            Int? //Tipo de lançamnto (TAXA DE BOLETO- deve estar cadastrado)
+  emissaoBoletoAntecedencia Int          @default(5) //Número de dias de antecedência para emissão de boletos  
+  porcentagemMultaAtraso    Float        @default(2) //Porcentagem de multa por atraso no pagamento
+  porcentagemJurosAtraso    Float        @default(0.1) //Porcentagem de juros por atraso no pagamento  
+  logo                      String? //Logotipo da empresa
+
+  smtpHost   String? //Host do servidor SMTP para envio de emails
+  portSmtp   Int? //Porta do servidor SMTP
+  secureSmtp Boolean? //Indica se a conexão SMTP é segura (SSL/TLS)
+  userSmtp   String? //Usuário para autenticação no servidor SMTP
+  pwdSmtp    String? //Senha para autenticação no servidor SMTP
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  imovelTipos         ImovelTipo[]
+  users               User[]
+  pessoas             Pessoa[]
+  condominios         Condominio[]
+  imoveis             Imovel[]
+  locacoes            Locacao[]
+  lancamentoTipos     LancamentoTipo[]
+  empresaAssinaturas  EmpresaAssinatura[]
+  contasCorrentes     ContaCorrente[]
+  boletos             Boleto[]
+  configuracaoAlertas ConfiguracaoAlertas[]
+  jobs                Jobs[]
+  tipoAlertas         TipoAlerta[]
+
+  @@map("empresas")
+}
+
+model ConfiguracaoAlertas {
+  id        Int        @id @default(autoincrement())
+  descricao String //Descrição do tipo de alerta (ex: Reajuste de locação, Vencimento de contrato, etc.)
+  ativo     Boolean    @default(false) //Indica se o alerta está ativo ou não
+  empresa   Empresa    @relation(fields: [empresaId], references: [id])
+  empresaId Int
+  alerta    TipoAlerta @relation(fields: [alertaId], references: [id])
+  alertaId  Int
+
+  textoAlerta     String? //Texto do alerta a ser enviado (ex: "O contrato de locação do imóvel X está vencendo em Y dias.")
+  tipoAgendamento TipoAgendamento //Tipo agendamento (ex: "UNICO", "RECORRENTE")
+  frequenciaEnvio FrequenciaEnvio? //Frequência de envio dos alertas (ex: "DIARIO", "SEMANAL", "MENSAL", "ANUAL") quando for recorrente
+
+  dataInicio DateTime? //Data e hora de início do envio dos alertas quando for único, pode ser a (data de vencimento - dias parametrizados para aviso)
+  //Se estiver vazia será a data de vencimento do tipo de alerta menos o número de dias parametrizados para aviso, 
+  // por exemplo, se for um alerta de vencimento de contrato e o número de dias para aviso for 30, 
+  // a data de início será a data de vencimento do contrato menos 30 dias
+
+  ocorreAcada  Int? //A cada quantos dias, meses, semanas, anos, etc. deve ser enviado o alerta quando for recorrente
+  grupoEnvio   String? //Grupo (dias, meses, semanas, anos) para envio dos alertas, armazenados como string separada por vírgula ou intervalo 
+  // Depende da frequência escolhida
+  // Exemplo:
+  //Dias :
+  //- 30,15,7,1 dias específicos
+  //- [1-10] range de dias
+  //Meses:
+  //- 3,2,1 meses específicos
+  //- [1-3] range de meses
+  //Dias Semanas:
+  //- 7,3,1 dias específicos
+  //- [1-7] range de dias da semana (1=Domingo, 2=Segunda, ..., 7=Sábado)
+  //Anos:
+  //- 1,2,3 anos específicos a partir de 2001
+  //- [1-5] range de anos
+  horarioEnvio String? //Horário do dia para envio dos alertas (ex: "09:00", "18:00", etc.) uma vez ao dia
+
+  tipoIntervaloEnvio TipoIntervaloEnvio? //Tipo de intervalo para envio dos alertas (ex: "HORAS", "MINUTOS", "SEGUNDOS") quando for recorrente e mais de uma vez ao dia
+  intervaloEnvio     Int? //Intervalo envio dos alertas quando for recorrente pode ser (dias, meses, semanas, anos, 1 a cada , 2 a cada 2 dias, etc.) 
+  horarioInicial     String? //Horário inicial para envio dos alertas (ex: "09:00", "18:00", etc.) quando for recorrente e mais de uma vez ao dia
+  horarioFinal       String? //Horário final para envio dos alertas (ex: "17:00", "23:00", etc.) quando for recorrente e mais de uma vez ao dia
+
+  dataInicioEnvio DateTime? //Data e hora de início do envio dos alertas quando for recorrente
+  dataFinalEnvio  DateTime? //Data e hora de finalização do envio dos alertas quando for recorrente sem data será enviado indefinidamente
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  jobs      Jobs[]
+
+  @@unique([empresaId, alertaId])
+  @@map("configuracoesalertas")
+}
+
+model TipoAlerta {
+  id        Int     @id @default(autoincrement())
+  descricao String?
+
+  status PessoaStatus @default(ATIVA)
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  alertas   ConfiguracaoAlertas[]
+
+  @@unique([empresaId, descricao])
+  @@map("tipoalertas")
+}
+
+model Banco {
+  id                    Int                     @id @default(autoincrement())
+  codigo                Int                     @unique
+  nome                  String
+  contaCorrentes        ContaCorrente[]
+  instrucaoCobrancas    InstrucaoCobranca[]
+  instrucaoRecebimentos InstrucaoRecebimentos[]
+  carteiraCobrancas     CarteiraCobranca[]
+  especieCobrancas      EspecieCobranca[]
+
+  @@map("bancos")
+}
+
+model ContaCorrente {
+  id               Int          @id @default(autoincrement())
+  agencia          String
+  conta            String
+  digito           String
+  descricao        String?
+  usuarioBancoAPI  String?
+  senhaBancoAPI    String?
+  chaveAppAPI      String?
+  urlPIX           String?
+  urlBoleto        String?
+  urlWebhookPIX    String?
+  urlWebhookBoleto String?
+  status           PessoaStatus @default(ATIVA)
+
+  banco   Banco @relation(fields: [bancoId], references: [id])
+  bancoId Int
+
+  instrucaoCob   InstrucaoCobranca @relation(fields: [instrucaoCobId], references: [id])
+  instrucaoCobId Int
+
+  instrucaoRec   InstrucaoRecebimentos @relation(fields: [instrucaoRecId], references: [id])
+  instrucaoRecId Int
+
+  carteira   CarteiraCobranca @relation(fields: [carteiraId], references: [id])
+  carteiraId Int
+
+  especie   EspecieCobranca @relation(fields: [especieId], references: [id])
+  especieId Int
+
+  pessoa   Pessoa? @relation(fields: [pessoaId], references: [id])
+  pessoaId Int?
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  @@unique([bancoId, agencia, conta, digito])
+  @@map("contascorrentes")
+}
+
+model InstrucaoCobranca {
+  id        Int    @id @default(autoincrement())
+  codigo    Int
+  descricao String
+
+  banco          Banco           @relation(fields: [bancoId], references: [id])
+  bancoId        Int
+  contaCorrentes ContaCorrente[]
+
+  @@unique([bancoId, codigo])
+  @@map("instrucoescobrancas")
+}
+
+model InstrucaoRecebimentos {
+  id        Int    @id @default(autoincrement())
+  codigo    Int
+  descricao String
+
+  banco          Banco           @relation(fields: [bancoId], references: [id])
+  bancoId        Int
+  contaCorrentes ContaCorrente[]
+
+  @@unique([bancoId, codigo])
+  @@map("instrucoesrecebimentos")
+}
+
+model CarteiraCobranca {
+  id               Int             @id @default(autoincrement())
+  carteira         Int
+  descricao        String
+  vencimentoMinimo Int? //Número mínimo de dias para vencimento da carteira
+  vencimentoMaximo Int? //Número máximo de dias para vencimento da carteira
+  banco            Banco           @relation(fields: [bancoId], references: [id])
+  bancoId          Int
+  contaCorrentes   ContaCorrente[]
+
+  @@unique([bancoId, carteira])
+  @@map("carteirascobrancas")
+}
+
+model EspecieCobranca {
+  id        Int    @id @default(autoincrement())
+  codigo    Int
+  descricao String
+  sigla     String
+
+  banco          Banco           @relation(fields: [bancoId], references: [id])
+  bancoId        Int
+  contaCorrentes ContaCorrente[]
+
+  @@unique([bancoId, codigo])
+  @@map("especiescobrancas")
+}
+
+model Jobs {
+  id        String              @id @default(uuid())
+  empresa   Empresa             @relation(fields: [empresaId], references: [id])
+  empresaId Int
+  alerta    ConfiguracaoAlertas @relation(fields: [alertaId], references: [id])
+  alertaId  Int
+  pessoa    Pessoa?             @relation(fields: [pessoaId], references: [id])
+  pessoaId  Int?
+  imovel    Imovel?             @relation(fields: [imovelId], references: [id])
+  imovelId  Int?
+  locacao   Locacao?            @relation(fields: [locacaoId], references: [id])
+  locacaoId Int?
+
+  str_message    String
+  str_error      String?
+  str_start_date String
+  str_end_date   String
+  str_start_time String
+  str_end_time   String
+  str_cron       String
+  int_delay      Int
+  dtm_created    DateTime   @default(now())
+  dtm_updated    DateTime   @updatedAt
+  status         JobsStatus @default(WAITING_TO_START)
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  //@@unique([empresaId, alertaId])
+  @@map("jobs")
+}
+
+model LancamentoTipo {
+  id             Int            @id @default(autoincrement())
+  name           String
+  tipo           lancamentoTipo @default(DEBITO)
+  automatico     String         @default("S")
+  contabil       String         @default("S")
+  geraboleto     String         @default("N")
+  parcelas       Int            @default(0)
+  geraObservacao String         @default("N")
+  valorFixo      Float?
+  status         PessoaStatus   @default(ATIVA)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  lancamentosLocacoes    LancamentoLocacao[]
+  lancamentosCondominios LancamentoCondominio[]
+
+  empresa           Empresa            @relation(fields: [empresaId], references: [id])
+  empresaId         Int
+  lancamentoImovels LancamentoImovel[]
+
+  @@unique([empresaId, name])
+  @@map("lancamentotipos")
+}
+
+model ImovelTipo {
+  id        Int          @id @default(autoincrement())
+  name      String
+  status    PessoaStatus @default(ATIVA)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  imoveis   Imovel[]
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  @@unique([empresaId, name])
+  @@map("imoveltipos")
+}
+
+model User {
+  id          String       @id @default(uuid())
+  login       String
+  name        String
+  email       String
+  password    String
+  role        UserRole     @default(COLLABORATOR)
+  permissions Permission[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  //TODO: create dynamic roles (Cargos) and permissions (with custom names, permissions, descriptions, etc)
+
+  // Adicionando campo para o histórico de logins 
+  // loginHistory LoginHistory[]
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+  jobs      Jobs[]
+
+  @@unique([empresaId, login])
+  @@map("users")
+}
+
+model Endereco {
+  id          Int      @id @default(autoincrement())
+  logradouro  String
+  numero      String
+  complemento String?
+  bairro      String
+  cidade      String
+  estado      String
+  cep         String
+  imoveis     Imovel[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  pessoas     Pessoa[]
+  empresas    Empresa[]
+  condominios Condominio[]
+
+  @@map("enderecos")
+}
+
+//migrate to it's instead of proprietario and locatario
+model Pessoa {
+  id          Int          @id @default(autoincrement())
+  documento   String //CPF ou CNPJ 
+  nome        String
+  profissao   String?
+  estadoCivil EstadoCivil?
+  endereco    Endereco     @relation(fields: [enderecoId], references: [id])
+  enderecoId  Int
+  email       String? //Email 
+  telefone    String? //Telefone 
+  status      PessoaStatus
+
+  fiador        Fiador?
+  proprietarios Proprietario[]
+  locatarios    Locatario[]
+  documentos    GenericAnexo[]
+  moradores     Morador[]
+
+  empresa        Empresa         @relation(fields: [empresaId], references: [id])
+  empresaId      Int
+  contaCorrentes ContaCorrente[]
+  jobs           Jobs[]
+
+  @@unique([empresaId, documento])
+  @@map("pessoas")
+}
+
+model Condominio {
+  id          Int         @id @default(autoincrement())
+  name        String
+  observacao  String? //Observações sobre o condomínio
+  endereco    Endereco    @relation(fields: [enderecoId], references: [id])
+  enderecoId  Int
+  formaRateio FormaRateio @default(IGUALITARIO)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  blocos     Bloco[]
+  imovels    Imovel[]
+  documentos GenericAnexo[]
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  @@map("condominios")
+}
+
+model Bloco {
+  id             Int     @id @default(autoincrement())
+  name           String
+  observacao     String?
+  qtdUnidades    Int
+  totalAndares   Int? //Total de andares do prédio (se for apartamento)
+  possuiElevador String? //Possui elevador? (S/N)
+  anoConstrucao  Int? //Ano de construção do 
+
+  condominio   Condominio @relation(fields: [condominioId], references: [id])
+  condominioId Int
+
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  imovels                Imovel[]
+  documentos             GenericAnexo[]
+  lancamentosCondominios LancamentoCondominio[]
+
+  @@map("blocos")
+}
+
+// //Imóvel - propriedade
+model Imovel {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // title       String //Título do imóvel
+  status      ImovelStatus //Status do imóvel (disponível, alugado, vendido, indisponível)
+  description String? //Descrição do imóvel
+  tipo        ImovelTipo       @relation(fields: [tipoId], references: [id])
+  tipoId      Int //Tipo do imóvel (casa, aparamento, terreno)
+  finalidade  ImovelFinalidade @default(ALUGUEL) //Finalidade do imóvel (aluguel, venda ou ambos)
+
+  porcentagemLucroImobiliaria Float //Porcentagem da imobiliária
+  valorAluguel                Float? @default(0) //Valor do aluguel inicial da locação
+  metragem                    Float? //Metragem do imóvel
+  quartos                     Int? //Número de quartos
+  banheiros                   Int? //Número de banheiros
+  vagasEstacionamento         Int? //Número de vagas de estacionamento
+  andar                       Int? //Andar do imóvel (se for apartamento)
+
+  endereco   Endereco @relation(fields: [enderecoId], references: [id])
+  enderecoId Int
+
+  condominio   Condominio? @relation(fields: [condominioId], references: [id])
+  condominioId Int?
+
+  bloco   Bloco? @relation(fields: [blocoId], references: [id])
+  blocoId Int?
+
+  proprietarios Proprietario[] //Um imóvel pode ter vários proprietários
+  locacoes      Locacao[]
+
+  //Historico de valores
+  historicoValores ImovelValorHistorico[]
+
+  imovelPhotos ImovelPhoto[]
+  //anexar obervaçoes, exemplo: "Imóvel precisa de reforma, isso mostra as fotos"
+  observacoes  Observacao[]
+  documentos   GenericAnexo[]
+  lancamentos  LancamentoImovel[]
+
+  empresa   Empresa  @relation(fields: [empresaId], references: [id])
+  empresaId Int
+  boletos   Boleto[]
+  jobs      Jobs[]
+
+  @@map("imoveis")
+}
+
+model Proprietario {
+  id         Int    @id @default(autoincrement())
+  pessoa     Pessoa @relation(fields: [pessoaId], references: [id])
+  pessoaId   Int
+  cotaImovel Float  @default(100)
+  imovel     Imovel @relation(fields: [imovelId], references: [id])
+  imovelId   Int
+
+  @@map("proprietarios")
+}
+
+model Morador {
+  id        Int     @id @default(autoincrement())
+  pessoa    Pessoa  @relation(fields: [pessoaId], references: [id])
+  pessoaId  Int
+  locacao   Locacao @relation(fields: [locacaoId], references: [id])
+  locacaoId Int
+
+  @@map("moradores")
+}
+
+model Locatario {
+  id       Int    @id @default(autoincrement())
+  pessoa   Pessoa @relation(fields: [pessoaId], references: [id])
+  pessoaId Int
+
+  locacoes Locacao[]
+  boletos  Boleto[]
+
+  @@map("locatarios")
+}
+
+model Fiador {
+  id       Int       @id @default(autoincrement())
+  pessoa   Pessoa    @relation(fields: [pessoaId], references: [id])
+  pessoaId Int       @unique
+  locacoes Locacao[]
+
+  @@map("fiadores")
+}
+
+model ImovelPhoto {
+  id        Int      @id @default(autoincrement())
+  url       String
+  imovel    Imovel   @relation(fields: [imovelId], references: [id])
+  imovelId  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("imovelphotos")
+}
+
+model Observacao {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  descricao String //Descrição da observação ou defeito
+  tipo      String //Tipo de observação (ex: manutenção, pintura, reforma)
+  status    String //Status (pendente, resolvido, etc.)
+  imovel    Imovel @relation(fields: [imovelId], references: [id])
+  imovelId  Int
+
+  observacaoAnexos ObservacaoAnexo[] //Anexos relacionados à observação
+
+  @@map("observacoes")
+}
+
+model ObservacaoAnexo {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  url          String //URL do anexo (foto ou documento)
+  tipo         String //Tipo do anexo (ex: imagem, documento, etc.)
+  observacao   Observacao @relation(fields: [observacaoId], references: [id])
+  observacaoId Int
+
+  @@map("observacaoanexos")
+}
+
+// Histórico dos valores do imóvel
+model ImovelValorHistorico {
+  id             Int             @id @default(autoincrement())
+  proprietarioId Int?
+  tipo           ValorImovelTipo // QUal foi o tipo de alteração feita
+  data           DateTime        @default(now())
+  valor          Decimal
+  observacao     String?
+  imovel         Imovel          @relation(fields: [imovelId], references: [id])
+  imovelId       Int
+
+  @@map("valorimovelhistorico")
+}
+
+model Locacao {
+  id            Int            @id @default(autoincrement())
+  dataInicio    DateTime
+  dataFim       DateTime
+  valorAluguel  Float
+  status        LocacaoStatus  @default(ATIVA)
+  imovel        Imovel?        @relation(fields: [imovelId], references: [id])
+  imovelId      Int?
+  diaVencimento Int
+  documentos    GenericAnexo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+
+  // Tipo de garantia
+  garantiaLocacaoTipo         GarantiaLocacaoTypes?
+  // Garantia de locação título de capitalização
+  garantiaTituloCapitalizacao TituloCapitalizacao?
+  // Garantia seguyro fiança (seguradoras)
+  garantiaSeguroFianca        SeguroFianca?
+  //Garantia deposito calcao
+  garantiaDepositoCalcao      DepositoCalcao?
+
+  //Seguro incêndio
+  seguroIncendio SeguroIncendio?
+
+  locatarios  Locatario[]
+  fiadores    Fiador[]
+  boletos     Boleto[]
+  reajustes   Reajuste[]
+  lancamentos LancamentoLocacao[]
+  moradores   Morador[]
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+  jobs      Jobs[]
+
+  @@map("locacoes")
+}
+
+model DepositoCalcao {
+  id              Int           @id @default(autoincrement())
+  valorDeposito   Float
+  quantidadeMeses Int
+  localDeposito   LocalDeposito
+  locacao         Locacao       @relation(fields: [locacaoId], references: [id])
+  locacaoId       Int           @unique
+}
+
+model SeguroFianca {
+  id           Int     @id @default(autoincrement())
+  numeroSeguro String
+  locacao      Locacao @relation(fields: [locacaoId], references: [id])
+  locacaoId    Int     @unique
+}
+
+model SeguroIncendio {
+  id             Int      @id @default(autoincrement())
+  numeroApolice  String
+  locacao        Locacao  @relation(fields: [locacaoId], references: [id])
+  locacaoId      Int      @unique
+  vigenciaInicio DateTime
+  vigenciaFim    DateTime
+}
+
+model TituloCapitalizacao {
+  id           Int     @id @default(autoincrement())
+  numeroTitulo String
+  // Relationships
+  locacao      Locacao @relation(fields: [locacaoId], references: [id])
+  locacaoId    Int     @unique
+}
+
+model GenericAnexo {
+  id          Int      @id @default(autoincrement())
+  url         String
+  name        String?
+  size        Int?
+  type        String?
+  tipoArquivo String // Ex.: "imagem", "documento"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pessoa       Pessoa?     @relation(fields: [pessoaId], references: [id])
+  pessoaId     Int?
+  locacao      Locacao?    @relation(fields: [locacaoId], references: [id])
+  locacaoId    Int?
+  imovel       Imovel?     @relation(fields: [imovelId], references: [id])
+  imovelId     Int?
+  pagamento    Boleto?     @relation(fields: [boletoId], references: [id])
+  boletoId     Int?
+  condominio   Condominio? @relation(fields: [condominioId], references: [id])
+  condominioId Int?
+  bloco        Bloco?      @relation(fields: [blocoId], references: [id])
+  blocoId      Int?
+
+  @@map("genericanexos")
+}
+
+model Reajuste {
+  id                Int      @id @default(autoincrement())
+  percentualRejuste Float
+  valorAluguel      Float
+  valorRejuste      Float
+  dataReajuste      DateTime
+  observacao        String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  locacao   Locacao @relation(fields: [locacaoId], references: [id])
+  locacaoId Int
+
+  @@map("reajustes")
+}
+
+model LancamentoLocacao {
+  id                   Int              @id @default(autoincrement())
+  lancamentotipo       LancamentoTipo   @relation(fields: [tipoId], references: [id])
+  parcela              Int? //Parcela do lançamento no caso de lançamento com número de parcelas
+  tipoId               Int //Tipo de lançamnto (IPTU, CONDOMINIO, ÁGUA, LUZ, etc..)
+  valorLancamento      Float //Valor do lançamento
+  dataLancamento       DateTime
+  vencimentoLancamento DateTime
+  linhaDigitavel       String? //Linha digitável do boleto gerado para esse lançamento
+  observacao           String
+  status               lancamentoStatus @default(ABERTO)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  locacao   Locacao @relation(fields: [locacaoId], references: [id])
+  locacaoId Int
+  boleto    Boleto? @relation(fields: [boletoId], references: [id])
+  boletoId  Int?
+
+  @@map("lancamentoslocacoes")
+}
+
+model LancamentoImovel {
+  id                   Int              @id @default(autoincrement())
+  lancamentotipo       LancamentoTipo   @relation(fields: [tipoId], references: [id])
+  parcela              Int? //Parcela do lançamento no caso de lançamento com número de parcelas
+  tipoId               Int //Tipo de lançamnto (IPTU, CONDOMINIO, ÁGUA, LUZ, etc..)
+  valorLancamento      Float //Valor do lançamento
+  dataLancamento       DateTime
+  vencimentoLancamento DateTime
+  linhaDigitavel       String? //Linha digitável do boleto gerado para esse lançamento
+  observacao           String
+  status               lancamentoStatus @default(ABERTO)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  imovel   Imovel  @relation(fields: [imovelId], references: [id])
+  imovelId Int
+  boleto   Boleto? @relation(fields: [boletoId], references: [id])
+  boletoId Int?
+
+  @@map("lancamentosimoveis")
+}
+
+model Boleto {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  locacao   Locacao? @relation(fields: [locacaoId], references: [id])
+  locacaoId Int?
+
+  imovel   Imovel? @relation(fields: [imovelId], references: [id])
+  imovelId Int?
+
+  status         BoletoStatus @default(PENDENTE) //Status do boleto (pendente, pago, atrasado...)  
+  dataEmissao    DateTime //date de emissão do boleto
+  dataVencimento DateTime //Data de vencimento do boleto
+  dataPagamento  DateTime? //Data de pagamento do boleto
+
+  valorOriginal Float //Valor do boleto
+  valorPago     Float? //Valor do boleto
+
+  locatario      Locatario? @relation(fields: [locatarioId], references: [id])
+  locatarioId    Int?
+  linhaDigitavel String?
+  observacao     String?
+
+  documentos        GenericAnexo[]
+  lanctoLocacao     LancamentoLocacao[]
+  boletosBancarios  BoletoBancario[]
+  lanctoCondominio  LancamentoCondominio[]
+  lancamentoImovels LancamentoImovel[]
+
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  empresaId Int
+
+  @@map("boletos")
+}
+
+model BoletoBancario {
+  id              Int       @id @default(autoincrement())
+  boleto          Boleto    @relation(fields: [boletoId], references: [id])
+  boletoId        Int
+  valor           Float //Valor do boleto
+  valorPago       Float //Valor pago no boleto
+  dataBoleto      DateTime //Emissao do boleto
+  dataVencimento  DateTime //Vencimento do boleto
+  dataPagamento   DateTime? //Data de pagamento do boleto
+  formaPix        String //Forma de pagamento PIX para recebimento
+  codigoBarras    String
+  linhaDigitavel  String
+  nossoNumero     String
+  urlBoleto       String //URL para visualização do boleto
+  registrado      String //S/N Informa se ocorreu o registro do boleto
+  emvPIX          String //Código EMV para pagamento via PIX
+  metodoPagamento String //Método de pagamento utilizado
+  status          String //Status do boleto
+  observacao      String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("boletosbancarios")
+}
+
+model LancamentoCondominio {
+  id                   Int              @id @default(autoincrement())
+  lancamentotipo       LancamentoTipo   @relation(fields: [tipoId], references: [id])
+  parcela              Int? //Parcela do lançamento no caso de lançamento com número de parcelas
+  tipoId               Int //Tipo de lançamnto (IPTU, CONDOMINIO, ÁGUA, LUZ, etc..)
+  valorLancamento      Float //Valor do lançamento
+  dataLancamento       DateTime
+  vencimentoLancamento DateTime
+  linhaDigitavel       String? //Linha digitável do boleto gerado para esse lançamento
+  observacao           String
+  rateia               String //Sim ou Não - Indica se o lançamento deve ser rateado entre os imóveis do condomínio
+  status               lancamentoStatus @default(ABERTO)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  bloco    Bloco   @relation(fields: [blocoId], references: [id])
+  blocoId  Int
+  boleto   Boleto? @relation(fields: [boletoId], references: [id])
+  boletoId Int?
+
+  @@map("lancamentoscondominios")
+}
+
+model Assinatura {
+  id                 Int                  @id @default(autoincrement())
+  name               String
+  descricao          String
+  tipo               TipoAssinatura
+  frequencia         FrequenciaAssinatura
+  valor              Float
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  empresaAssinaturas EmpresaAssinatura[]
+
+  @@map("assinaturas")
+}
+
+model EmpresaAssinatura {
+  id           Int        @id @default(autoincrement())
+  empresa      Empresa    @relation(fields: [empresaId], references: [id])
+  empresaId    Int
+  assinatura   Assinatura @relation(fields: [assinaturaId], references: [id])
+  assinaturaId Int
+
+  dataInicio DateTime
+  dataFim    DateTime
+  status     BoletoStatus @default(PENDENTE)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  pagamentoAssinaturas PagamentoAssinatura[]
+
+  @@map("empresasassinaturas")
+}
+
+model PagamentoAssinatura {
+  id                Int               @id @default(autoincrement())
+  assinaturaempresa EmpresaAssinatura @relation(fields: [empassinaturaId], references: [id])
+  empassinaturaId   Int
+
+  dataPagamento   DateTime
+  valorPago       Float
+  metodoPagamento String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  //dados da empresa que fez o pagamento
+  empresa_pagamento String //PagSeguro, Mercado Pago, etc.
+  id_request        String?
+  reference_id      String?
+  created_at        DateTime?
+
+  costumer_name          String?
+  costumer_email         String?
+  costumer_tax_id        String?
+  costumer_phone_type    String?
+  costumer_phone_country String?
+  costumer_phone_area    String?
+  costumer_phone_number  String?
+
+  items_reference_id String?
+  items_name         String?
+  items_quantity     Int?
+  items_unit_amount  Float?
+
+  shipping_address_street      String?
+  shipping_address_number      String?
+  shipping_address_locality    String?
+  shipping_address_city        String?
+  shipping_address_region_code String?
+  shipping_address_country     String?
+  shipping_address_postal_code String?
+
+  charges_id           String?
+  charges_reference_id String?
+  charges_status       String?
+  charges_created_at   DateTime?
+  charges_paid_at      DateTime?
+  charges_description  String?
+
+  charges_amount_value    Float?
+  charges_amount_currency String?
+
+  charges_amount_summary_total    Float?
+  charges_amount_summary_paid     Float?
+  charges_amount_summary_refunded Float
+
+  charges_payment_response_code      Int?
+  charges_payment_response_message   String?
+  charges_payment_response_reference String?
+
+  charges_payment_response_raw_data_authorization_code String?
+  charges_payment_response_raw_data_nsu                String?
+  charges_payment_response_raw_data_tid                String?
+  charges_payment_response_raw_data_reason_code        String?
+
+  charges_payment_method_type             String?
+  charges_payment_method_installments     Int?
+  charges_payment_method_capture          Boolean?
+  charges_payment_method_soft_description String?
+
+  charges_payment_method_card_id           String?
+  charges_payment_method_card_brand        String?
+  charges_payment_method_card_first_digits String?
+  charges_payment_method_card_last_digits  String?
+  charges_payment_method_card_exp_month    String?
+  charges_payment_method_card_exp_year     String?
+  charges_payment_method_card_store        Boolean?
+
+  charges_payment_method_holder_name   String?
+  charges_payment_method_holder_tax_id String?
+
+  pagamentoLinks PagamentoLinks[]
+
+  @@map("pagamentosassinaturas")
+}
+
+model PagamentoLinks {
+  id Int @id @default(autoincrement())
+
+  pagamentoassinatura   PagamentoAssinatura @relation(fields: [pagamentoAssinaturaId], references: [id])
+  pagamentoAssinaturaId Int
+
+  rel    String?
+  href   String
+  media  String?
+  method String?
+
+  @@map("pagamentolinks")
+}
+
+model Session {
+  id        Int      @id @unique @default(autoincrement())
+  sessionID String   @unique @default(cuid())
+  creds     String? //store a json with the credentials
+  createdAt DateTime @default(now())
+
+  @@map("sessions")
+}
+
+enum Permission {
+  //can do everything
+  ALL
+
+  //Empresa
+  CREATE_EMPRESA
+  UPDATE_EMPRESA
+  DELETE_EMPRESA
+  VIEW_EMPRESAS
+
+  //Tipo Imovel
+  CREATE_TIPO
+  UPDATE_TIPO
+  DELETE_TIPO
+  VIEW_TIPOS
+
+  //Tipo lancamentos
+  CREATE_TIPO_LANC
+  UPDATE_TIPO_LANC
+  DELETE_TIPO_LANC
+  VIEW_TIPOS_LANC
+
+  //Condomínios
+  CREATE_CONDOMINIO
+  UPDATE_CONDOMINIO
+  DELETE_CONDOMINIO
+  VIEW_CONDOMINIOS
+
+  //Blocos
+  CREATE_BLOCO
+  UPDATE_BLOCO
+  DELETE_BLOCO
+  VIEW_BLOCOS
+
+  //Imoveis
+  CREATE_IMOVEL
+  UPDATE_IMOVEL
+  DELETE_IMOVEL
+  VIEW_IMOVELS
+
+  //Locatarios
+  CREATE_LOCATARIO
+  UPDATE_LOCATARIO
+  DELETE_LOCATARIO
+  VIEW_LOCATARIOS
+
+  //Pessoas
+  CREATE_PESSOA
+  UPDATE_PESSOA
+  DELETE_PESSOA
+  VIEW_PESSOAS
+
+  //Proprietarios
+  CREATE_PROPRIETARIO
+  UPDATE_PROPRIETARIO
+  DELETE_PROPRIETARIO
+  VIEW_PROPRIETARIOS
+
+  //Locacoes
+  CREATE_LOCACAO
+  UPDATE_LOCACAO
+  DELETE_LOCACAO
+  VIEW_LOCACOES
+
+  //Lancamentos locações
+  CREATE_LOCACAO_LANCAMENTO
+  UPDATE_LOCACAO_LANCAMENTO
+  DELETE_LOCACAO_LANCAMENTO
+  VIEW_LOCACAO_LANCAMENTOS
+
+  //Lancamentos locações
+  CREATE_CONDOMINIO_LANCAMENTO
+  UPDATE_CONDOMINIO_LANCAMENTO
+  DELETE_CONDOMINIO_LANCAMENTO
+  VIEW_CONDOMINIO_LANCAMENTOS
+
+  //Pagamentos
+  CREATE_PAGAMENTO
+  UPDATE_PAGAMENTO
+  DELETE_PAGAMENTO
+  VIEW_PAGAMENTOS
+
+  //Reajustes
+  CREATE_REAJUSTE
+  UPDATE_REAJUSTE
+  DELETE_REAJUSTE
+  VIEW_REAJUSTES
+
+  //PagSeguro
+  PAGSEGURO_CREATE_ORDER
+  PAGSEGURO_UPDATE_ORDER
+  PAGSEGURO_DELETE_ORDER
+  PAGSEGURO_VIEW_ORDERS
+
+  //Moradores
+  CREATE_MORADOR
+  UPDATE_MORADOR
+  DELETE_MORADOR
+  VIEW_MORADORES
+
+  //Tipo alertas
+  CREATE_TIPO_ALERTA
+  UPDATE_TIPO_ALERTA
+  DELETE_TIPO_ALERTA
+  VIEW_TIPOS_ALERTA
+
+  //Alertas
+  CREATE_ALERTA
+  UPDATE_ALERTA
+  DELETE_ALERTA
+  VIEW_ALERTAS
+
+  //Conta corrente
+  CREATE_CONTA_CORRENTE
+  UPDATE_CONTA_CORRENTE
+  DELETE_CONTA_CORRENTE
+  VIEW_CONTAS_CORRENTE
+}
+
+enum UserRole {
+  ADMIN
+  COLLABORATOR
+}
+
+enum EstadoCivil {
+  SOLTEIRO
+  CASADO
+  DIVORCIADO
+  VIUVO
+  UNIAO_ESTAVEL
+}
+
+enum ImovelStatus {
+  DISPONIVEL
+  ALUGADO
+  VENDIDO
+  INDISPONIVEL
+  INATIVO
+}
+
+enum TipoAssinatura {
+  BASICO
+  PADRAO
+  PREMIU
+}
+
+enum FrequenciaAssinatura {
+  ANUAL
+  SEMESTRAL
+  TRIMESTRAL
+  MENSAL
+}
+
+enum ValorImovelTipo {
+  VENDA
+  ALUGUEL
+  IPTU
+  CONDOMINIO
+  AGUA
+  TAXA_LIXO
+  PORCENTAGEM_LUCRO_IMOBILIARIA
+}
+
+enum GarantiaLocacaoTypes {
+  SEGURO_FIANCA
+  TITULO_CAPITALIZACAO
+  DEPOSITO_CALCAO
+  FIADOR
+}
+
+enum LocacaoStatus {
+  ATIVA
+  ENCERRADA
+  AGUARDANDO_DOCUMENTOS
+}
+
+enum PessoaStatus {
+  ATIVA
+  CANCELADA
+}
+
+enum lancamentoTipo {
+  DEBITO
+  CREDITO
+}
+
+enum lancamentoStatus {
+  ABERTO
+  CONFIRMADO
+}
+
+enum ImovelFinalidade {
+  ALUGUEL
+  VENDA
+  AMBOS
+}
+
+enum BoletoStatus {
+  PENDENTE
+  CONFIRMADO
+  ATRASADO
+  PAGO
+  CANCELADO
+}
+
+enum LocalDeposito {
+  IMOBILIARIA
+  PROPRIETARIO
+}
+
+enum FormaRateio {
+  IGUALITARIO
+  FRACAO_IDEAL
+}
+
+enum TipoAgendamento {
+  RECORRENTE
+  UNICO
+}
+
+enum FrequenciaEnvio {
+  DIAS_VENCIMENTO
+  DIARIO
+  SEMANAL
+  MENSAL
+  ANUAL
+}
+
+enum TipoIntervaloEnvio {
+  HORAS
+  MINUTOS
+  SEGUNDOS
+}
+
+enum JobsStatus {
+  CREATING
+  WAITING_TO_START
+  WAITING_TO_PROCESS
+  RUNNING
+  PAUSED
+  PAUSED_BY_SCHEDULE
+  FINISHED
+  ERROR
+}

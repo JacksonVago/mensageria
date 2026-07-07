@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine:latest
+    container_name: mens-redis
+    ports:
+      - "6379:6379"
+
+  api:
+    image: node:alpine:latest
+    container_name: mensageria
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: sh -c "npm install && node index.js"
+    ports:
+      - "99:99"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
