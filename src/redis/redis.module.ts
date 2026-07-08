@@ -20,7 +20,8 @@ import { RedisController } from './redis.controller';
     RedisModule.forRoot({
         type: 'single',
         //url: 'redis://localhost:6379',
-        url: 'redis://redis:6379',
+        //url: 'redis://redis:6379',
+        url:'redis://mens-redis:6379'
       }),
   ],
   controllers:[RedisController],

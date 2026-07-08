@@ -301,6 +301,7 @@ export class QueueService {
                     repeat: {
                         pattern: dto.str_cron,
                         limit: int_limit > 0 ? int_limit : 1,
+                        tz: 'America/Sao_Paulo',
                     }
                 });
         }
