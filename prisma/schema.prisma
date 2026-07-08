@@ -135,14 +135,18 @@ model TipoAlerta {
 }
 
 model Banco {
-  id                    Int                     @id @default(autoincrement())
-  codigo                Int                     @unique
-  nome                  String
-  contaCorrentes        ContaCorrente[]
-  instrucaoCobrancas    InstrucaoCobranca[]
-  instrucaoRecebimentos InstrucaoRecebimentos[]
-  carteiraCobrancas     CarteiraCobranca[]
-  especieCobrancas      EspecieCobranca[]
+  id                       Int                       @id @default(autoincrement())
+  codigo                   Int                       @unique
+  nome                     String
+  contaCorrentes           ContaCorrente[]
+  instrucaoCobrancas       InstrucaoCobranca[]
+  instrucaoRecebimentos    InstrucaoRecebimentos[]
+  carteiraCobrancas        CarteiraCobranca[]
+  especieCobrancas         EspecieCobranca[]
+  tipoAutorizacaoCobrancas TipoAutorizacaoCobranca[]
+  tipoDescontoCobrancas    TipoDescontoCobranca[]
+  tipoMultaCobrancas       TipoMultaCobranca[]
+  tipoJurosCobrancas       TipoJurosCobranca[]
 
   @@map("bancos")
 }
@@ -152,6 +156,7 @@ model ContaCorrente {
   agencia          String
   conta            String
   digito           String
+  cooperativa      String?
   descricao        String?
   usuarioBancoAPI  String?
   senhaBancoAPI    String?
@@ -161,30 +166,135 @@ model ContaCorrente {
   urlWebhookPIX    String?
   urlWebhookBoleto String?
   status           PessoaStatus @default(ATIVA)
+  pagtoParcial     Boolean?     @default(false) //Indica se o alerta está ativo ou não
+  qtdeMaxParcial   Int? //Quantide de pagamentos parcial 1..99
+  formaEnvio       FormaEnvio?
+  assuntoEmail     String?
+  mensagemEmail1   String?
+  mensagemEmail2   String?
+  mensagemEmail3   String?
+  convenio         String? //Código do convenio bancário
+
+  tipoJurosCob    TipoJurosCobranca? @relation(fields: [tipoJurosCobId], references: [id])
+  tipoJurosCobId  Int?
+  valorJuros      Float?
+  percJuros       Float?
+  diasInicioJuros Int?
+
+  tipoMultaCob    TipoMultaCobranca? @relation(fields: [tipoMultaCobId], references: [id])
+  tipoMultaCobId  Int?
+  valorMulta      Float?
+  percMulta       Float?
+  diasInicioMulta Int?
+
+  tipoDescontoCob    TipoDescontoCobranca? @relation(fields: [tipoDescontoCobId], references: [id])
+  tipoDescontoCobId  Int?
+  valorDesconto      Float?
+  percDesconto       Float?
+  diasInicioDesconto Int?
+
+  tipoAutorizacaoCob   TipoAutorizacaoCobranca? @relation(fields: [tipoAutorizacaoCobId], references: [id])
+  tipoAutorizacaoCobId Int?
+  tipoRecebimentoDiv   String?
+  valorMinDiverg       Float?
+  valorMaxDiverg       Float?
+  percMinDiverg        Float?
+  percMaxDiverg        Float?
+
+  protestar         Boolean?
+  qtdeDiasProtesto  Int?
+  negativar         Boolean?
+  qtdeDiasNegativar Int?
+
+  instrucaoCob1      InstrucaoCobranca? @relation("instrucaoCob1", fields: [instrucaoCobId1], references: [id])
+  instrucaoCobId1    Int?
+  instrucaoCob2      InstrucaoCobranca? @relation("instrucaoCob2", fields: [instrucaoCobId2], references: [id])
+  instrucaoCobId2    Int?
+  instrucaoCob3      InstrucaoCobranca? @relation("instrucaoCob3", fields: [instrucaoCobId3], references: [id])
+  instrucaoCobId3    Int?
+  qtdeDiasAposVencto Int?
+  cobrancaDiaUtil    Boolean?
+
+  instrucaoRec1   InstrucaoRecebimentos? @relation("instrucaoRec1", fields: [instrucaoRecId1], references: [id])
+  instrucaoRecId1 Int?
+  instrucaoRec2   InstrucaoRecebimentos? @relation("instrucaoRec2", fields: [instrucaoRecId2], references: [id])
+  instrucaoRecId2 Int?
+  instrucaoRec3   InstrucaoRecebimentos? @relation("instrucaoRec3", fields: [instrucaoRecId3], references: [id])
+  instrucaoRecId3 Int?
+  instrucaoRec4   InstrucaoRecebimentos? @relation("instrucaoRec4", fields: [instrucaoRecId4], references: [id])
+  instrucaoRecId4 Int?
 
   banco   Banco @relation(fields: [bancoId], references: [id])
   bancoId Int
 
-  instrucaoCob   InstrucaoCobranca @relation(fields: [instrucaoCobId], references: [id])
-  instrucaoCobId Int
+  carteira   CarteiraCobranca? @relation(fields: [carteiraId], references: [id])
+  carteiraId Int?
 
-  instrucaoRec   InstrucaoRecebimentos @relation(fields: [instrucaoRecId], references: [id])
-  instrucaoRecId Int
-
-  carteira   CarteiraCobranca @relation(fields: [carteiraId], references: [id])
-  carteiraId Int
-
-  especie   EspecieCobranca @relation(fields: [especieId], references: [id])
-  especieId Int
+  especie   EspecieCobranca? @relation(fields: [especieId], references: [id])
+  especieId Int?
 
   pessoa   Pessoa? @relation(fields: [pessoaId], references: [id])
   pessoaId Int?
 
-  empresa   Empresa @relation(fields: [empresaId], references: [id])
-  empresaId Int
+  empresa         Empresa          @relation(fields: [empresaId], references: [id])
+  empresaId       Int
+  boletoBancarios BoletoBancario[]
+  boletos         Boleto[]
 
   @@unique([bancoId, agencia, conta, digito])
   @@map("contascorrentes")
+}
+
+model TipoAutorizacaoCobranca {
+  id        Int    @id @default(autoincrement())
+  codigo    String
+  descricao String
+
+  banco          Banco           @relation(fields: [bancoId], references: [id])
+  bancoId        Int
+  contaCorrentes ContaCorrente[]
+
+  @@unique([bancoId, codigo])
+  @@map("tiposautorizacoescobrancas")
+}
+
+model TipoDescontoCobranca {
+  id        Int    @id @default(autoincrement())
+  codigo    String
+  descricao String
+
+  banco          Banco           @relation(fields: [bancoId], references: [id])
+  bancoId        Int
+  contaCorrentes ContaCorrente[]
+
+  @@unique([bancoId, codigo])
+  @@map("tiposdescontoscobrancas")
+}
+
+model TipoMultaCobranca {
+  id        Int    @id @default(autoincrement())
+  codigo    String
+  descricao String
+
+  banco          Banco           @relation(fields: [bancoId], references: [id])
+  bancoId        Int
+  contaCorrentes ContaCorrente[]
+
+  @@unique([bancoId, codigo])
+  @@map("tiposmultascobrancas")
+}
+
+model TipoJurosCobranca {
+  id        Int    @id @default(autoincrement())
+  codigo    String
+  descricao String
+
+  banco          Banco           @relation(fields: [bancoId], references: [id])
+  bancoId        Int
+  contaCorrentes ContaCorrente[]
+
+  @@unique([bancoId, codigo])
+  @@map("tiposjuroscobrancas")
 }
 
 model InstrucaoCobranca {
@@ -192,9 +302,11 @@ model InstrucaoCobranca {
   codigo    Int
   descricao String
 
-  banco          Banco           @relation(fields: [bancoId], references: [id])
-  bancoId        Int
-  contaCorrentes ContaCorrente[]
+  banco         Banco           @relation(fields: [bancoId], references: [id])
+  bancoId       Int
+  instrucaoCob1 ContaCorrente[] @relation("instrucaoCob1")
+  instrucaoCob2 ContaCorrente[] @relation("instrucaoCob2")
+  instrucaoCob3 ContaCorrente[] @relation("instrucaoCob3")
 
   @@unique([bancoId, codigo])
   @@map("instrucoescobrancas")
@@ -205,9 +317,12 @@ model InstrucaoRecebimentos {
   codigo    Int
   descricao String
 
-  banco          Banco           @relation(fields: [bancoId], references: [id])
-  bancoId        Int
-  contaCorrentes ContaCorrente[]
+  banco         Banco           @relation(fields: [bancoId], references: [id])
+  bancoId       Int
+  instrucaoRec1 ContaCorrente[] @relation("instrucaoRec1")
+  instrucaoRec2 ContaCorrente[] @relation("instrucaoRec2")
+  instrucaoRec3 ContaCorrente[] @relation("instrucaoRec3")
+  instrucaoRec4 ContaCorrente[] @relation("instrucaoRec4")
 
   @@unique([bancoId, codigo])
   @@map("instrucoesrecebimentos")
@@ -229,7 +344,7 @@ model CarteiraCobranca {
 
 model EspecieCobranca {
   id        Int    @id @default(autoincrement())
-  codigo    Int
+  codigo    String
   descricao String
   sigla     String
 
@@ -349,6 +464,7 @@ model Endereco {
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  codantigo   Int?
   pessoas     Pessoa[]
   empresas    Empresa[]
   condominios Condominio[]
@@ -368,6 +484,7 @@ model Pessoa {
   email       String? //Email 
   telefone    String? //Telefone 
   status      PessoaStatus
+  codantigo   Int?
 
   fiador        Fiador?
   proprietarios Proprietario[]
@@ -448,6 +565,7 @@ model Imovel {
 
   endereco   Endereco @relation(fields: [enderecoId], references: [id])
   enderecoId Int
+  codantigo  Int?
 
   condominio   Condominio? @relation(fields: [condominioId], references: [id])
   condominioId Int?
@@ -571,15 +689,16 @@ model ImovelValorHistorico {
 }
 
 model Locacao {
-  id            Int            @id @default(autoincrement())
+  id            Int           @id @default(autoincrement())
   dataInicio    DateTime
   dataFim       DateTime
   valorAluguel  Float
-  status        LocacaoStatus  @default(ATIVA)
-  imovel        Imovel?        @relation(fields: [imovelId], references: [id])
+  status        LocacaoStatus @default(ATIVA)
+  imovel        Imovel?       @relation(fields: [imovelId], references: [id])
   imovelId      Int?
   diaVencimento Int
-  documentos    GenericAnexo[]
+
+  documentos GenericAnexo[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -761,33 +880,91 @@ model Boleto {
   lanctoCondominio  LancamentoCondominio[]
   lancamentoImovels LancamentoImovel[]
 
-  empresa   Empresa @relation(fields: [empresaId], references: [id])
-  empresaId Int
+  empresa         Empresa        @relation(fields: [empresaId], references: [id])
+  empresaId       Int
+  contaCorrente   ContaCorrente? @relation(fields: [contaCorrenteId], references: [id])
+  contaCorrenteId Int?
 
   @@map("boletos")
 }
 
 model BoletoBancario {
-  id              Int       @id @default(autoincrement())
-  boleto          Boleto    @relation(fields: [boletoId], references: [id])
-  boletoId        Int
+  id       Int    @id @default(autoincrement())
+  boleto   Boleto @relation(fields: [boletoId], references: [id])
+  boletoId Int
+
   valor           Float //Valor do boleto
   valorPago       Float //Valor pago no boleto
   dataBoleto      DateTime //Emissao do boleto
   dataVencimento  DateTime //Vencimento do boleto
   dataPagamento   DateTime? //Data de pagamento do boleto
-  formaPix        String //Forma de pagamento PIX para recebimento
-  codigoBarras    String
-  linhaDigitavel  String
-  nossoNumero     String
-  urlBoleto       String //URL para visualização do boleto
-  registrado      String //S/N Informa se ocorreu o registro do boleto
-  emvPIX          String //Código EMV para pagamento via PIX
-  metodoPagamento String //Método de pagamento utilizado
-  status          String //Status do boleto
-  observacao      String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  formaPix        String? // tipo de boleto (Sicredi) : HIBRIDO (gera qr code PIX) ou NORMAL
+  codigoBarras    String?
+  linhaDigitavel  String?
+  nossoNumero     String?
+  urlBoleto       String? //URL para visualização do boleto
+  registrado      String? //S/N Informa se ocorreu o registro do boleto
+  emvPIX          String? //Código EMV para pagamento via PIX
+  metodoPagamento String? //Método de pagamento utilizado
+  status          String? //Status do boleto
+  observacao      String?
+  txid            String? //txID do PIX quando for híbrido
+  qrcode          String? //QR CODE do PIX quando for híbrido
+
+  pagtoParcial   Boolean? @default(false) //Indica se o alerta está ativo ou não
+  qtdeMaxParcial Int? //Quantide de pagamentos parcial 1..99
+  formaEnvio     String?
+  email          String?
+  assuntoEmail   String?
+  mensagemEmail1 String?
+  mensagemEmail2 String?
+  mensagemEmail3 String?
+
+  tipoJurosCobCod String?
+  valorJuros      Float?
+  percJuros       Float?
+  diasInicioJuros Int?
+
+  tipoMultaCobCod String?
+  valorMulta      Float?
+  percMulta       Float?
+  diasInicioMulta Int?
+
+  tipoDescontoCobCod String?
+  valorDesconto      Float?
+  percDesconto       Float?
+  diasInicioDesconto Int?
+
+  tipoAutorizacaoCobCod String?
+  tipoRecebimentoDiv    String?
+  valorMinDiverg        Float?
+  valorMaxDiverg        Float?
+  percMinDiverg         Float?
+  percMaxDiverg         Float?
+
+  protestar         Boolean?
+  qtdeDiasProtesto  Int?
+  negativar         Boolean?
+  qtdeDiasNegativar Int?
+
+  instrucaoCobCod1 String?
+  instrucaoCobCod2 String?
+  instrucaoCobCod3 String?
+
+  instrucaoRecCod1 String?
+  instrucaoRecCod2 String?
+  instrucaoRecCod3 String?
+  instrucaoRecCod4 String?
+
+  carteiraCod String?
+
+  especieCod String?
+  createdAt  DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  contacorrente ContaCorrente? @relation(fields: [contaId], references: [id])
+  contaId       Int?
 
   @@map("boletosbancarios")
 }
@@ -1069,6 +1246,66 @@ enum Permission {
   UPDATE_CONTA_CORRENTE
   DELETE_CONTA_CORRENTE
   VIEW_CONTAS_CORRENTE
+
+  //Instrucao de cobrança
+  CREATE_INSTRUCAO_COBRANCA
+  UPDATE_INSTRUCAO_COBRANCA
+  DELETE_INSTRUCAO_COBRANCA
+  VIEW_INSTRUCOES_COBRANCA
+
+  //Instrução de recebimento
+  CREATE_INSTRUCAO_RECEBIMENTO
+  UPDATE_INSTRUCAO_RECEBIMENTO
+  DELETE_INSTRUCAO_RECEBIMENTO
+  VIEW_INSTRUCOES_RECEBIMENTO
+
+  //Carteira de cobrança
+  CREATE_CARTEIRA_COBRANCA
+  UPDATE_CARTEIRA_COBRANCA
+  DELETE_CARTEIRA_COBRANCA
+  VIEW_CARTEIRAS_COBRANCA
+
+  //Espécie de cobrança
+  CREATE_ESPECIE_COBRANCA
+  UPDATE_ESPECIE_COBRANCA
+  DELETE_ESPECIE_COBRANCA
+  VIEW_ESPECIES_COBRANCA
+
+  //Banco
+  CREATE_BANCO
+  UPDATE_BANCO
+  DELETE_BANCO
+  VIEW_BANCOS
+
+  //Tipo de juros
+  CREATE_TIPO_JUROS
+  UPDATE_TIPO_JUROS
+  DELETE_TIPO_JUROS
+  VIEW_TIPOS_JUROS
+
+  //Tipo de multa
+  CREATE_TIPO_MULTA
+  UPDATE_TIPO_MULTA
+  DELETE_TIPO_MULTA
+  VIEW_TIPOS_MULTA
+
+  //Tipo de desconto
+  CREATE_TIPO_DESCONTOS
+  UPDATE_TIPO_DESCONTOS
+  DELETE_TIPO_DESCONTOS
+  VIEW_TIPOS_DESCONTOS
+
+  //Tipo de AUTORIZACAO
+  CREATE_TIPO_AUTORIZACAO
+  UPDATE_TIPO_AUTORIZACAO
+  DELETE_TIPO_AUTORIZACAO
+  VIEW_TIPO_AUTORIZACAO
+
+  //Boleto bancario
+  CREATE_BOLETO_BANCARIO
+  UPDATE_BOLETO_BANCARIO
+  DELETE_BOLETO_BANCARIO
+  VIEW_BOLETO_BANCARIO
 }
 
 enum UserRole {
@@ -1155,6 +1392,7 @@ enum BoletoStatus {
   ATRASADO
   PAGO
   CANCELADO
+  ENVIADO_BANCO
 }
 
 enum LocalDeposito {
@@ -1195,4 +1433,9 @@ enum JobsStatus {
   PAUSED_BY_SCHEDULE
   FINISHED
   ERROR
+}
+
+enum FormaEnvio {
+  EMAIL
+  IMPRESSAO
 }

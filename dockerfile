@@ -34,4 +34,4 @@ RUN npm run build
 EXPOSE 99
 
 # Command to run the application
-CMD ["dumb-init","node", "dist/src/main.js"]
+CMD ["dumb-init","node", "dist/main.js"]
