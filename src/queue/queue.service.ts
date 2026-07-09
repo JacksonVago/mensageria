@@ -284,6 +284,8 @@ export class QueueService {
             if ((new Date(dto.str_start_date + ' ' + dto.str_start_time)).toISOString() > (new Date()).toISOString()) {
                 int_delay_schedule = Number(new Date(dto.str_start_date + ' ' + dto.str_start_time)) - Date.now();
             }
+            console.log('Datas end :', dto.str_end_date, new Date(dto.str_end_time).getDate());
+            console.log('Datas start :', dto.str_start_date, new Date(dto.str_start_time).getDate());
             int_limit = new Date(dto.str_end_date).getDate() - new Date(dto.str_start_date).getDate();
         }
         else {
