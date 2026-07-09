@@ -300,7 +300,7 @@ export class QueueService {
                     delay: dto.int_delay + int_delay_schedule,
                     repeat: {
                         pattern: dto.str_cron,
-                        limit: int_limit > 0 ? int_limit : 1,
+                        limit: int_limit > 0 ? int_limit : undefined,
                         tz: 'America/Sao_Paulo',
                     }
                 });
