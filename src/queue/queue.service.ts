@@ -342,12 +342,19 @@ export class QueueService {
         try {
             const prismaService: PrismaService = new PrismaService();
 
+            setTimeout(() => {
+                console.log('Aguardando 2 segundo para pesquisar usuarios...');
+            }, 2000);
+
             const user = await prismaService.user.findFirst({
                 where: {
                     empresaId: empresaId,
                 },
             });
 
+            setTimeout(() => {
+                console.log('Aguardando 2 segundo para pesquisar alertas boeltos vencidos...');
+            }, 2000);
             //Idendifica os alertas
             const element = await prismaService.configuracaoAlertas.findFirst({
                 where: {
@@ -365,6 +372,10 @@ export class QueueService {
             console.log('Data :', new Date(now.getFullYear() + '-' + (now.getMonth() + 1) + '-' + now.getDate()));
             //Guarda o texto do alerta para processamento, substituindo os campos dinâmicos pelas informações correspondentes de cada contrato, locação, boleto, etc.
             textoAlerta = element.textoAlerta ? element.textoAlerta : "O boleto com vencimento em <Data de Vencimento> no valor de <Valor Original> referente a locação do imóvel <Imóvel> está vencido. <Email>";
+
+            setTimeout(() => {
+                console.log('Aguardando 2 segundo para pesquisar boletos atrasados...');
+            }, 2000);
 
             const boletosVenc = await prismaService.boleto.findMany({
                 where: {
@@ -544,6 +555,11 @@ export class QueueService {
                     status: jobs_status_enum.WAITING_TO_START,
                     userId: user.id,
                 }
+
+                setTimeout(() => {
+                    console.log('Aguardando 2 segundo para criar job boleto atrasado...');
+                }, 2000);
+
                 await prismaService.jobs.create({
                     data: {
                         str_message: jobData.str_message,
@@ -610,6 +626,11 @@ export class QueueService {
 
         let int_cont = 0;
         const prismaService: PrismaService = new PrismaService();
+
+        setTimeout(() => {
+            console.log('Aguardando 2 segundo para jobs para processar...');
+        }, 2000);
+
         const jobs_data = await prismaService.jobs.findMany({
             where: {
                 empresaId: empresaId,
@@ -711,18 +732,27 @@ export class QueueService {
             const prismaService: PrismaService = new PrismaService();
 
             //Identifica parametrização da empresa
+            setTimeout(() => {
+                console.log('Aguardando 2 segundo para pesquisar empresa...');
+            }, 2000);
             const empresaConfig = await prismaService.empresa.findUnique({
                 where: {
                     id: empresaId,
                 },
             });
 
+            setTimeout(() => {
+                console.log('Aguardando 2 segundo para pesquisar usuario...');
+            }, 2000);
             const user = await prismaService.user.findFirst({
                 where: {
                     empresaId: empresaId,
                 },
             });
 
+            setTimeout(() => {
+                console.log('Aguardando 2 segundo para pesquisar os alertas...');
+            }, 2000);
             //Idendifica os alertas        
             const result = await prismaService.configuracaoAlertas.findMany({
                 where: {
@@ -798,8 +828,10 @@ export class QueueService {
                 console.log('Processa alerta: ', element.alerta.descricao);
                 switch (element.alerta.descricao) {
                     case "Geração de Alertas":
-                        //console.log('Geração de Alertas.');
-                        //Veririca se já existe essa JOB criada, para não criar duplicada
+                        setTimeout(() => {
+                            console.log('Aguardando 2 segundo para pesquisar de job existe...');
+                        }, 2000);
+                        //Veririca se já existe essa JOB criada, para não criar duplicada                        
                         const existingJobExec = await prismaService.jobs.findFirst({
                             where: {
                                 alertaId: element.id,
@@ -836,6 +868,10 @@ export class QueueService {
                             userId: user.id,
                         }
                         try {
+                            setTimeout(() => {
+                                console.log('Aguardando 2 segundo para criar a job...');
+                            }, 2000);
+
                             const job = await prismaService.jobs.create({
                                 data: {
                                     str_message: jobDataExec.str_message,
@@ -876,6 +912,10 @@ export class QueueService {
                     case "Geração de Alertas boletos vencidos":
                         //console.log('Geração de Alertas boletos vencidos');
                         //Veririca se já existe essa JOB criada, para não criar duplicada
+                        setTimeout(() => {
+                            console.log('Aguardando 2 segundo para verificar se job existe boletos vencidos...');
+                        }, 2000);
+
                         const existingJob = await prismaService.jobs.findFirst({
                             where: {
                                 alertaId: element.id,
@@ -911,6 +951,10 @@ export class QueueService {
                             userId: user.id,
                         }
                         try {
+                            setTimeout(() => {
+                                console.log('Aguardando 2 segundo para criar jb boleto vencido...');
+                            }, 2000);
+
                             const job = await prismaService.jobs.create({
                                 data: {
                                     str_message: jobData.str_message,
@@ -947,6 +991,10 @@ export class QueueService {
                         break;
 
                     case "Aviso reajuste Locação":
+                        setTimeout(() => {
+                            console.log('Aguardando 2 segundo para pesquisar locacoes reajuste...');
+                        }, 2000);
+
                         const locacao = await prismaService.locacao.findMany({
                             where: {
                                 empresaId: empresaId,
@@ -965,6 +1013,10 @@ export class QueueService {
                     case "Aviso renovação contrato":
                         const datInicio = new Date();
                         datInicio.setDate(datInicio.getDate() + empresaConfig?.avisosRenovacaoContrato);
+
+                        setTimeout(() => {
+                            console.log('Aguardando 2 segundo para pesquisar locações renovação contrato...');
+                        }, 2000);
 
                         const renovacaoContrato = await prismaService.locacao.findMany({
                             where: {
@@ -1051,6 +1103,10 @@ export class QueueService {
                         break;
 
                     case "Aviso seguro fiança":
+                        setTimeout(() => {
+                            console.log('Aguardando 2 segundo para pesquisar locaçoes seguro fianca...');
+                        }, 2000);
+
                         const seguroFianca = await prismaService.locacao.findMany({
                             where: {
                                 empresaId: empresaId,
@@ -1091,6 +1147,11 @@ export class QueueService {
                         dataFinal.setDate(dataFinal.getDate() + empresaConfig.avisosVencBoleto);
                         console.log('Data Inicial: ', dataInicial);
                         console.log('Data Final: ', dataFinal);
+
+                        setTimeout(() => {
+                            console.log('Aguardando 2 segundo para pesquisar boletos a vencer...');
+                        }, 2000);
+
                         const boletos = await prismaService.boleto.findMany({
                             where: {
                                 empresaId: empresaId,
@@ -1291,6 +1352,10 @@ export class QueueService {
                                 status: jobs_status_enum.WAITING_TO_START,
                                 userId: user.id,
                             }
+                            setTimeout(() => {
+                                console.log('Aguardando 2 segundo para criar job boletos a vencer...');
+                            }, 2000);
+
                             const job = await prismaService.jobs.create({
                                 data: {
                                     str_error: jobData.str_error,
