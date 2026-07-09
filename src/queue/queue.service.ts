@@ -1,7 +1,7 @@
 import { EnvService } from '@/env/env.service';
 import { BullBoardInstance, InjectBullBoard } from '@bull-board/nestjs';
 import { Injectable, Logger } from "@nestjs/common";
-import { Job, JobType, Queue, Worker } from "bullmq";
+import { Job, JobsOptions, JobType, Queue, Worker } from "bullmq";
 import { jobMessageDto } from "./dto/job-message.dto";
 //import { BaseAdapter } from "@bull-board/api/dist/src/queueAdapters/base";
 import { MailService } from '@/email/email.service';
@@ -293,19 +293,24 @@ export class QueueService {
         }
 
         let jobNew: Job;
+        let jobOptions: JobsOptions;
+
         //console.log(dto);
         if (dto.str_cron.length > 0 && dto.str_cron != null) {
-            jobNew = await queueAux.add(dto.id,
-                dto,
-                {
-                    jobId: dto.id,
-                    delay: dto.int_delay + int_delay_schedule,
+            jobOptions = {
+                jobId: dto.id,
+                delay: dto.int_delay + int_delay_schedule,
                     repeat: {
                         pattern: dto.str_cron,
                         limit: int_limit > 0 ? int_limit : undefined,
                         tz: 'America/Sao_Paulo',
                     }
-                });
+            };
+
+            jobNew = await queueAux.add(dto.id,
+                dto,
+                jobOptions,
+                );
         }
         else {
             jobNew = await queueAux.add(dto.id,
