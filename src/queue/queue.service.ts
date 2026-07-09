@@ -511,10 +511,18 @@ export class QueueService {
                 empresaId: empresaId,
                 alertaId: element.id,
                 descAlerta: element.alerta.descricao,
-                pessoaId: (boleto.imovelId !== null && boleto.imovelId > 0 ? boleto.imovel.proprietarios[0]?.pessoaId : boleto.locacao.locatarios[0]?.pessoaId),
-                imovelId: (boleto.imovelId !== null && boleto.imovelId > 0 ? boleto.locacao.imovelId : null),
+                pessoaId: (boleto.imovelId !== null && boleto.imovelId > 0 ?
+                    ((boleto.imovel && boleto.imovel.proprietarios && boleto.imovel.proprietarios.length > 0) ? boleto.imovel.proprietarios[0]?.pessoaId : undefined) :
+                    boleto.locacaoId !== null && boleto.locacaoId > 0 ?
+                    ((boleto.locacao && boleto.locacao.locatarios && boleto.locacao.locatarios.length > 0) ? boleto.locacao.locatarios[0]?.pessoaId : undefined) :
+                    undefined),
+                imovelId: (boleto.imovelId !== null && boleto.imovelId > 0 ? boleto.imovelId : null),
                 locacaoId: (boleto.locacaoId !== null && boleto.locacaoId > 0 ? boleto.locacaoId : null),
-                str_email: (boleto.imovelId !== null && boleto.imovelId > 0 ? boleto.imovel.proprietarios[0]?.pessoa.email : boleto.locacao.locatarios[0]?.pessoa.email),
+                str_email: (boleto.imovelId !== null && boleto.imovelId > 0 ?
+                    ((boleto.imovel && boleto.imovel.proprietarios && boleto.imovel.proprietarios.length > 0) ? boleto.imovel.proprietarios[0]?.pessoa.email : undefined) :
+                    boleto.locacaoId !== null && boleto.locacaoId > 0 ?
+                    ((boleto.locacao && boleto.locacao.locatarios && boleto.locacao.locatarios.length > 0) ? boleto.locacao.locatarios[0]?.pessoa.email : undefined) :
+                    undefined),
                 str_error: null,
                 str_message: textoAlerta,
                 str_start_date: new Date().toISOString().split('T')[0],
